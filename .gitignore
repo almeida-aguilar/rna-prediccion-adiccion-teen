@@ -12,6 +12,3 @@ wheels/
 
 # Temps
 .gradio/
-
-# Self
-.gitignore
