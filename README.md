@@ -1,7 +1,7 @@
 # 📱 Predicción de Adicción al Teléfono con Redes Neuronales (RNA)
 
-> Proyecto final para el curso **SI404 – Inteligencia Artificial**  
-> Ciclo 2026-1 | Prof. Patricia Daniela Reyes Silva
+> Proyecto final para el curso **1ASI0404 – Inteligencia Artificial**  
+> Ciclo 2026-1 | Prof. Andres Gibu La Torre
 
 ## 📋 Descripción
 
@@ -169,7 +169,7 @@ Almeida Aguilar, Ivan Antonio – u20231b249 – u20231b249@upc.edu.pe
 
 ## 📚 Curso
 
-SI404 – Inteligencia Artificial
+1ASI0404 – Inteligencia Artificial
 
 Prof. Andres Gibu La Torre
 
