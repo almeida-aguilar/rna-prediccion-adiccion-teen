@@ -92,10 +92,10 @@ Público (temporal): `https://xxxx.gradio.live` (compartir para la presentación
 Si prefieres ejecutar el EDA en local:
 
 ```bash
-uv run jupyter notebook notebooks/01_eda_analysis.ipynb
+uv run jupyter notebook notebooks/eda_analysis.ipynb
 ```
 
-O desde Google Colab, abre el enlace que está en `video/link_video.txt`.
+O desde Google Colab, abre el enlace que está en `link_eda_analysis_google_colab.txt`.
 
 ## 📁 Estructura del proyecto
 
@@ -107,8 +107,8 @@ O desde Google Colab, abre el enlace que está en `video/link_video.txt`.
 │   ├── formulario.png             # Formulario de entrada
 │   └── resultado.png              # Resultado de la predicción
 ├── notebooks/
-│   ├── 01_eda_analysis.ipynb      # Análisis exploratorio (Jupyter)
-│   └── 01_eda_analysis.txt        # Enlace a la versión en Colab
+│   ├── eda_analysis.ipynb         # Análisis exploratorio (Jupyter)
+│   └── link_eda_analysis_google_colab.txt # Enlace a la versión en Colab
 ├── src/
 │   └── app.py                     # Código principal de la interfaz y modelo
 ├── video/
