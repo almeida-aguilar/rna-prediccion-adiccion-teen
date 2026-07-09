@@ -47,10 +47,12 @@ all_feature_names = X_raw.columns.tolist()
 
 # Características principales
 main_features = [
-    'Age', 'Gender', 'Daily_Usage_Hours', 'Sleep_Hours',
-    'Social_Interactions', 'Anxiety_Level', 'Depression_Level',
-    'Self_Esteem', 'Screen_Time_Before_Bed', 'Phone_Checks_Per_Day',
-    'Time_on_Social_Media', 'Time_on_Gaming'
+    'Daily_Usage_Hours',
+    'Apps_Used_Daily',
+    'Time_on_Social_Media',
+    'Time_on_Gaming',
+    'Phone_Checks_Per_Day',
+    'Sleep_Hours'
 ]
 advanced_features = [col for col in all_feature_names if col not in main_features]
 
