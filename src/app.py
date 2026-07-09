@@ -5,6 +5,7 @@ import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -38,6 +39,19 @@ for col in categorical_cols:
     le = LabelEncoder()
     X_raw[col] = le.fit_transform(X_raw[col].astype(str))
     label_encoders[col] = le
+
+# Detectar columnas numéricas que en realidad son binarias (0/1), como Parental_Control,
+# para mostrarlas como Radio en vez de un slider continuo que permite valores
+# intermedios (ej. 0.3) que no tienen sentido para una variable booleana.
+binary_cols = []
+for col in X_raw.columns:
+    if col in categorical_cols:
+        continue
+    unique_vals = set(pd.unique(df[col].dropna()))
+    if unique_vals.issubset({0, 1}):
+        binary_cols.append(col)
+
+print(f"Columnas binarias detectadas (0/1): {binary_cols}")
 
 # Lista de todos los nombres de características, ya numéricas
 all_feature_names = X_raw.columns.tolist()
@@ -85,7 +99,6 @@ print("Entrenando la Red Neuronal...")
 modelo.fit(X_train, y_train)
 
 # Evaluar el modelo sobre el conjunto de prueba
-from sklearn.metrics import mean_absolute_error, r2_score
 y_pred = modelo.predict(X_test)
 mae = mean_absolute_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
@@ -104,7 +117,7 @@ def predecir_adiccion(*args):
     Devuelve un texto formateado con el resultado e interpretación.
     """
     n_main = len(main_features)
-    n_advanced = len(advanced_features)
+    # n_advanced = len(advanced_features)
 
     # Separar los valores que vienen en el orden: primero los principales, luego los avanzados
     main_values = list(args[:n_main])
@@ -124,6 +137,9 @@ def predecir_adiccion(*args):
         if col in categorical_cols:
             encoded = label_encoders[col].transform([str(val)])[0]
             full_values.append(encoded)
+        elif col in binary_cols:
+            # Viene como Radio con etiquetas "Sí"/"No" -> convertir a 1/0
+            full_values.append(1.0 if val == "Sí" else 0.0)
         else:
             full_values.append(float(val))
 
@@ -134,6 +150,9 @@ def predecir_adiccion(*args):
     # Predecir y redondear
     prediccion = modelo.predict(entrada_scaled)[0]
     prediccion = round(prediccion, 1)
+    # El modelo puede predecir fuera del rango real (0-10) por ser una regresión libre;
+    # se recorta para mantener la interpretación coherente con la escala del dataset.
+    prediccion = float(np.clip(prediccion, 0, 10))
 
     # Interpretar el nivel de adicción según umbrales
     if prediccion >= 8.0:
@@ -166,31 +185,25 @@ def predecir_adiccion(*args):
 # 4. INTERFAZ CON GRADIO
 # ============================================================
 
-# Crear los controles para las características principales
-main_inputs = []
-for col in main_features:
+def crear_input(col):
+    """Crea el control de Gradio adecuado según el tipo de columna."""
     if col in categorical_cols:
-        # Si es categórica, mostrar un menú desplegable con las categorías originales
+        # Categórica tipo string -> Dropdown con las categorías originales
         choices = original_categories[col]
-        main_inputs.append(gr.Dropdown(choices=choices, label=col, value=choices[0]))
+        return gr.Dropdown(choices=choices, label=col, value=choices[0])
+    elif col in binary_cols:
+        # Booleana 0/1 -> Radio con etiquetas legibles en vez de slider continuo
+        return gr.Radio(choices=["No", "Sí"], label=col, value="No")
     else:
-        # Si es numérica, mostrar un slider con rango real y valor por defecto (media)
+        # Numérica continua -> Slider con rango real y valor por defecto (media)
         min_val = float(df[col].min())
         max_val = float(df[col].max())
         mean_val = float(df[col].mean())
-        main_inputs.append(gr.Slider(min_val, max_val, value=mean_val, label=col, step=0.1))
+        return gr.Slider(min_val, max_val, value=mean_val, label=col, step=0.1)
 
-# Crear los controles para las características avanzadas
-advanced_inputs = []
-for col in advanced_features:
-    if col in categorical_cols:
-        choices = original_categories[col]
-        advanced_inputs.append(gr.Dropdown(choices=choices, label=col, value=choices[0]))
-    else:
-        min_val = float(df[col].min())
-        max_val = float(df[col].max())
-        mean_val = float(df[col].mean())
-        advanced_inputs.append(gr.Slider(min_val, max_val, value=mean_val, label=col, step=0.1))
+# Crear los controles para las características principales y avanzadas
+main_inputs = [crear_input(col) for col in main_features]
+advanced_inputs = [crear_input(col) for col in advanced_features]
 
 # Unir todos los inputs en el mismo orden en que la función los espera
 all_inputs = main_inputs + advanced_inputs
@@ -240,4 +253,4 @@ with gr.Blocks(title="Predicción de Adicción al Teléfono") as demo:
 
 if __name__ == "__main__":
     print("Lanzando la aplicación web...")
-    demo.launch(share=True)
+    demo.launch(share=False)
