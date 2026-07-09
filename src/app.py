@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 
 print("🔄 Cargando dataset...")
 path_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-path_dataset = os.path.join(path_root, 'dataset', 'teen_phone_addiction_dataset.csv')
+path_dataset = os.path.join(path_root, 'dataset', 'teen_phone_addiction.csv')
 df = pd.read_csv(path_dataset)
 
 # ============================================================
