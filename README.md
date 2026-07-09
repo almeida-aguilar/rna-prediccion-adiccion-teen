@@ -129,7 +129,7 @@ O desde Google Colab, abre el enlace que está en `link_eda_analysis_google_cola
 
 Del análisis de correlación se identificaron las variables más influyentes:
 
-|Variable	Correlación con Addiction_Level|
+|Variable	| Correlación con Addiction_Level|
 |:--|--:|
 |Daily_Usage_Hours |	0.601|
 |Apps_Used_Daily |	0.319|
