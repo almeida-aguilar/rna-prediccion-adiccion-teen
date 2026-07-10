@@ -3,93 +3,86 @@ import numpy as np
 import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
 from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 import warnings
 warnings.filterwarnings('ignore')
 
-# Cargar el conjunto de datos desde un archivo CSV ubicado en la carpeta 'dataset'
+# Cargar dataset
 print("Cargando dataset...")
 path_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 path_dataset = os.path.join(path_root, 'dataset', 'teen_phone_addiction.csv')
 df = pd.read_csv(path_dataset)
 
-# ============================================================
-# 1. LIMPIEZA Y PREPROCESAMIENTO DE DATOS
-# ============================================================
-
-# Eliminar columnas irrelevantes que no aportan al modelo (identificador, nombre, ubicación)
+# ------------------------------------------------------------
+# 1. LIMPIEZA Y PREPROCESAMIENTO
+# ------------------------------------------------------------
 columns_to_drop = ['ID', 'Name', 'Location']
 df = df.drop(columns=[c for c in columns_to_drop if c in df.columns])
 
-# Separar características (X) y variable objetivo (y)
 target_col = 'Addiction_Level'
 X_raw = df.drop(columns=[target_col])
 y_raw = df[target_col]
 
-# Identificar columnas categóricas (tipo object) para codificarlas posteriormente
+# Identificar columnas categóricas (tipo object)
 categorical_cols = X_raw.select_dtypes(include=['object']).columns.tolist()
-label_encoders = {}          # Guarda los codificadores por columna
-original_categories = {}     # Guarda los valores originales para mostrarlos en la interfaz
+numeric_cols = X_raw.select_dtypes(exclude=['object']).columns.tolist()
 
-# Codificar variables categóricas a números utilizando LabelEncoder
-for col in categorical_cols:
-    original_categories[col] = sorted(df[col].astype(str).unique())
-    le = LabelEncoder()
-    X_raw[col] = le.fit_transform(X_raw[col].astype(str))
-    label_encoders[col] = le
+# Guardar categorías originales para los dropdowns de la interfaz
+original_categories = {col: sorted(df[col].astype(str).unique()) for col in categorical_cols}
 
-# Detectar columnas numéricas que en realidad son binarias (0/1), como Parental_Control,
-# para mostrarlas como Radio en vez de un slider continuo que permite valores
-# intermedios (ej. 0.3) que no tienen sentido para una variable booleana.
+# Detectar columnas numéricas que son binarias (0/1) para usar Radio
 binary_cols = []
-for col in X_raw.columns:
-    if col in categorical_cols:
-        continue
+for col in numeric_cols:
     unique_vals = set(pd.unique(df[col].dropna()))
     if unique_vals.issubset({0, 1}):
         binary_cols.append(col)
+print(f"Columnas binarias detectadas: {binary_cols}")
 
-print(f"Columnas binarias detectadas (0/1): {binary_cols}")
-
-# Lista de todos los nombres de características, ya numéricas
+# Lista completa de nombres de columnas (antes de codificar)
 all_feature_names = X_raw.columns.tolist()
 
-# Características principales que se mostrarán en la sección principal de la interfaz
+# Características principales y avanzadas (nombres originales)
 main_features = [
-    'Daily_Usage_Hours',
-    'Apps_Used_Daily',
-    'Time_on_Social_Media',
-    'Time_on_Gaming',
-    'Phone_Checks_Per_Day',
-    'Sleep_Hours'
+    'Daily_Usage_Hours', 'Apps_Used_Daily', 'Time_on_Social_Media',
+    'Time_on_Gaming', 'Phone_Checks_Per_Day', 'Sleep_Hours'
 ]
-# El resto de características se consideran avanzadas y se agrupan en otra sección
 advanced_features = [col for col in all_feature_names if col not in main_features]
 
-print(f"Características principales: {len(main_features)}")
-print(f"Características avanzadas: {len(advanced_features)}")
+# ------------------------------------------------------------
+# 2. PREPROCESAMIENTO CON ONE-HOT ENCODING
+# ------------------------------------------------------------
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', 'passthrough', numeric_cols),                     # numéricas sin cambio
+        ('cat', OneHotEncoder(drop='first', handle_unknown='ignore'), categorical_cols)  # one-hot
+    ]
+)
 
-# ============================================================
-# 2. ENTRENAMIENTO DEL MODELO DE RED NEURONAL
-# ============================================================
+# Aplicar el preprocesador y luego escalar
+X_processed = preprocessor.fit_transform(X_raw)
+# Convertir a array denso si es disperso
+if hasattr(X_processed, 'toarray'):
+    X_processed = X_processed.toarray()
 
-# Normalizar las características para mejorar el rendimiento de la red neuronal
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X_raw)
+X_scaled = scaler.fit_transform(X_processed)
 
-# Dividir los datos en conjuntos de entrenamiento (80%) y prueba (20%)
+# Dividir en entrenamiento y prueba
 X_train, X_test, y_train, y_test = train_test_split(
     X_scaled, y_raw, test_size=0.2, random_state=42
 )
 
-# Crear el modelo de regresión con perceptrón multicapa (MLPRegressor)
+# ------------------------------------------------------------
+# 3. ENTRENAMIENTO DEL MODELO
+# ------------------------------------------------------------
 modelo = MLPRegressor(
-    hidden_layer_sizes=(100, 50),  # Dos capas ocultas: 100 y 50 neuronas
+    hidden_layer_sizes=(100, 50),
     activation='relu',
     solver='adam',
-    alpha=0.001,                    # Regularización L2
+    alpha=0.001,
     max_iter=500,
     random_state=42,
     verbose=False
@@ -98,33 +91,22 @@ modelo = MLPRegressor(
 print("Entrenando la Red Neuronal...")
 modelo.fit(X_train, y_train)
 
-# Evaluar el modelo sobre el conjunto de prueba
 y_pred = modelo.predict(X_test)
 mae = mean_absolute_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 print(f"MAE: {mae:.3f}")
 print(f"R²: {r2:.3f}")
 
-# ============================================================
-# 3. FUNCIÓN DE PREDICCIÓN (llamada desde Gradio)
-# ============================================================
-
+# ------------------------------------------------------------
+# 4. FUNCIÓN DE PREDICCIÓN (Gradio)
+# ------------------------------------------------------------
 def predecir_adiccion(*args):
-    """
-    Recibe los valores de todos los sliders y dropdowns.
-    Reconstruye el vector de entrada en el orden original,
-    lo escala y obtiene la predicción de adicción (0-10).
-    Devuelve un texto formateado con el resultado e interpretación.
-    """
     n_main = len(main_features)
-    # n_advanced = len(advanced_features)
-
-    # Separar los valores que vienen en el orden: primero los principales, luego los avanzados
     main_values = list(args[:n_main])
     advanced_values = list(args[n_main:])
 
-    # Construir la lista completa de valores en el orden de all_feature_names
-    full_values = []
+    # Construir un diccionario con los valores crudos en el orden de las columnas originales
+    input_dict = {}
     for col in all_feature_names:
         if col in main_features:
             idx = main_features.index(col)
@@ -133,28 +115,26 @@ def predecir_adiccion(*args):
             idx = advanced_features.index(col)
             val = advanced_values[idx]
 
-        # Si la columna era originalmente categórica, codificar el string a número
-        if col in categorical_cols:
-            encoded = label_encoders[col].transform([str(val)])[0]
-            full_values.append(encoded)
-        elif col in binary_cols:
-            # Viene como Radio con etiquetas "Sí"/"No" -> convertir a 1/0
-            full_values.append(1.0 if val == "Sí" else 0.0)
-        else:
-            full_values.append(float(val))
+        # Si la columna es binaria (Radio "Sí"/"No") convertir a 1/0
+        if col in binary_cols:
+            val = 1.0 if val == "Sí" else 0.0
+        # Para las demás, mantener el valor (numérico o string de categoría)
+        input_dict[col] = val
 
-    # Convertir a array 2D y escalar usando el mismo scaler del entrenamiento
-    entrada = np.array(full_values).reshape(1, -1)
-    entrada_scaled = scaler.transform(entrada)
+    # Crear DataFrame con una fila
+    input_df = pd.DataFrame([input_dict])
 
-    # Predecir y redondear
-    prediccion = modelo.predict(entrada_scaled)[0]
-    prediccion = round(prediccion, 1)
-    # El modelo puede predecir fuera del rango real (0-10) por ser una regresión libre;
-    # se recorta para mantener la interpretación coherente con la escala del dataset.
-    prediccion = float(np.clip(prediccion, 0, 10))
+    # Aplicar el preprocesador (One-Hot para categóricas) y luego el escalador
+    input_processed = preprocessor.transform(input_df)
+    if hasattr(input_processed, 'toarray'):
+        input_processed = input_processed.toarray()
+    input_scaled = scaler.transform(input_processed)
 
-    # Interpretar el nivel de adicción según umbrales
+    # Predecir
+    prediccion = modelo.predict(input_scaled)[0]
+    prediccion = float(np.clip(round(prediccion, 1), 0, 10))
+
+    # Interpretación
     if prediccion >= 8.0:
         nivel = "🔴 **ALTA**"
         recomendacion = "Se recomienda reducir el tiempo de pantalla y buscar ayuda profesional."
@@ -168,7 +148,6 @@ def predecir_adiccion(*args):
         nivel = "🟣 **MUY BAJA**"
         recomendacion = "Excelente! Sigue manteniendo hábitos saludables."
 
-    # Formatear salida en Markdown
     resultado = f"""
 ## 📱 Nivel de Adicción Predicho: **{prediccion}/10**
 ### Categoría: {nivel}
@@ -181,40 +160,30 @@ def predecir_adiccion(*args):
 """
     return resultado
 
-# ============================================================
-# 4. INTERFAZ CON GRADIO
-# ============================================================
-
+# ------------------------------------------------------------
+# 5. INTERFAZ (sin cambios en los controles)
+# ------------------------------------------------------------
 def crear_input(col):
-    """Crea el control de Gradio adecuado según el tipo de columna."""
     if col in categorical_cols:
-        # Categórica tipo string -> Dropdown con las categorías originales
         choices = original_categories[col]
         return gr.Dropdown(choices=choices, label=col, value=choices[0])
     elif col in binary_cols:
-        # Booleana 0/1 -> Radio con etiquetas legibles en vez de slider continuo
         return gr.Radio(choices=["No", "Sí"], label=col, value="No")
     else:
-        # Numérica continua -> Slider con rango real y valor por defecto (media)
         min_val = float(df[col].min())
         max_val = float(df[col].max())
         mean_val = float(df[col].mean())
         return gr.Slider(min_val, max_val, value=mean_val, label=col, step=0.1)
 
-# Crear los controles para las características principales y avanzadas
 main_inputs = [crear_input(col) for col in main_features]
 advanced_inputs = [crear_input(col) for col in advanced_features]
-
-# Unir todos los inputs en el mismo orden en que la función los espera
 all_inputs = main_inputs + advanced_inputs
 
-# Construir la interfaz con bloques
 with gr.Blocks(title="Predicción de Adicción al Teléfono") as demo:
     gr.Markdown("""
     # 📱 Predicción de Adicción al Teléfono en Adolescentes
     ### Ingresa los datos del estudiante para obtener una predicción del nivel de adicción (0-10)
     """)
-
     with gr.Row():
         with gr.Column(scale=2):
             gr.Markdown("## 📋 Sección Principal")
@@ -225,19 +194,9 @@ with gr.Blocks(title="Predicción de Adicción al Teléfono") as demo:
             gr.Markdown("*Deja el valor por defecto si no lo conoces.*")
             for inp in advanced_inputs:
                 inp.render()
-
-    # Botón de predicción y área de salida
     predict_btn = gr.Button("Predecir Adicción", variant="primary")
     output = gr.Markdown("_Esperando datos..._")
-
-    # Conectar el botón con la función de predicción
-    predict_btn.click(
-        fn=predecir_adiccion,
-        inputs=all_inputs,
-        outputs=output
-    )
-
-    # Información resumen del modelo
+    predict_btn.click(fn=predecir_adiccion, inputs=all_inputs, outputs=output)
     gr.Markdown(f"""
     ---
     **📊 Información del Modelo**
@@ -247,10 +206,6 @@ with gr.Blocks(title="Predicción de Adicción al Teléfono") as demo:
     - **Escala de adicción:** 0 (mínimo) a 10 (máximo)
     """)
 
-# ============================================================
-# 5. EJECUTAR LA APLICACIÓN
-# ============================================================
-
 if __name__ == "__main__":
     print("Lanzando la aplicación web...")
-    demo.launch(share=False)
+    demo.launch(share=True)
