@@ -107,12 +107,11 @@ O desde Google Colab, abre el enlace que está en `link_eda_analysis_google_cola
 │   ├── formulario.png             # Formulario de entrada
 │   └── resultado.png              # Resultado de la predicción
 ├── notebooks/
-│   ├── eda_analysis.ipynb         # Análisis exploratorio (Jupyter)
-│   └── link_eda_analysis_google_colab.txt # Enlace a la versión en Colab
+│   ├── eda_analysis.ipynb         # Análisis exploratorio
+│   └── mlp_confusion_matrix.ipynb # Análisis de la red neuronal
+│   └── linear_regression_coefficients.ipynb # Comparativa de coeficientes
 ├── src/
 │   └── app.py                     # Código principal de la interfaz y modelo
-├── video/
-│   └── link_video.txt             # Enlace al video de exposición (YouTube)
 ├── pyproject.toml                 # Configuración del proyecto y dependencias
 ├── uv.lock                        # Bloqueo exacto de versiones (uv)
 └── README.md                      # Este archivo
