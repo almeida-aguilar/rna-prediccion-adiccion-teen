@@ -110,6 +110,10 @@ O desde Google Colab, abre el enlace que está en `link_eda_analysis_google_cola
 │   ├── eda_analysis.ipynb         # Análisis exploratorio
 │   └── mlp_confusion_matrix.ipynb # Análisis de la red neuronal
 │   └── linear_regression_coefficients.ipynb # Comparativa de coeficientes
+├── report/
+│   └── TF_Informe_Almeida.docx    # Informe en formato .docx
+│   └── TF_Informe_Almeida.md      # Informe en formato .md
+│   └── TF_Informe_Almeida.pdf     # Informe en formato .pdf
 ├── src/
 │   └── app.py                     # Código principal de la interfaz y modelo
 ├── pyproject.toml                 # Configuración del proyecto y dependencias
